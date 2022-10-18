@@ -1,0 +1,275 @@
+#include <bits/stdc++.h>
+using namespace std;
+#define ll long long int
+
+
+bitset<6> getSixBits(bitset<32> Ins, int start, int end) {
+    int i, j =5;
+    bitset<6> temp;
+    for (i = start; i >= end; i--)
+    {
+        temp[j] = Ins[i];      
+        j--;
+    }
+    return temp;
+}
+
+bitset<5> getFiveBits(bitset<32> Ins, int start, int end) {
+    int i, j = 4;
+    bitset<5> temp;
+    for (i = start; i >= end; i--)
+    {
+        temp[j] = Ins[i];         
+        j--;
+    }
+    return temp;
+}
+
+bitset<32> signExtend(bitset<16> Imm){
+    int j;
+    bitset<32> temp;
+    for (j = 0; j < 16; j++){
+        temp[j] = Imm[j];
+        temp[j+16] = Imm[15];
+    }
+    return temp;
+}
+class RF
+{
+    public:
+        bitset<32> ReadData1, ReadData2;
+        myRF()
+        {  
+          Registers[0] = bitset<32> (0);
+
+        }
+     
+        void ReadWrite(bitset<5> RdReg1, bitset<5> RdReg2, bitset<5> WrtReg, bitset<32> WrtData, bitset<1> WrtEnable)
+        {     
+            long a=(RdReg1.to_ulong());
+            long b=(RdReg2.to_ulong());
+        ReadData1 = Registers[a];         
+        ReadData2 = Registers[b];           
+        if (WrtEnable.to_ulong()==1) 
+        Registers[WrtReg.to_ulong()] = WrtData;             
+         }
+         void OutputRF()
+             {
+               ofstream fout;
+                  fout.open("output.txt");      
+                  if (fout.is_open())
+                  {
+                    fout<<"A state of RF:"<<endl;
+                  for (int j = 0; j<32; j++)
+                      {        
+                        fout << Registers[j]<<endl;                    
+                      }
+                     
+                  }
+                  else cout<<"Unable to open file";
+                  fout.close();
+               
+               }     
+   private:
+    bitset<32> Registers[32]; 
+          
+    
+};
+
+class ALU{
+public:
+    bitset<32> ALUresult;
+    bitset<32> ALUOperation (bitset<6> funct, bitset<32> oprand1, bitset<32> oprand2)
+        {   
+            if(funct.to_ulong() == 32) {    
+                ALUresult = bitset<32>(oprand1.to_ulong() + oprand2.to_ulong());
+            }
+            else if(funct.to_ulong() == 34){
+                ALUresult = oprand1.to_ulong() - oprand2.to_ulong();
+            }
+
+                 return ALUresult;
+               }            
+};
+class IMem{
+public:
+    bitset<32> Instruction;
+    myIMem(){
+
+    }
+        bitset<32> ReadMemory (bitset<32> ReadAddress){
+                  ifstream imem;
+                  string line;
+                  long i=0;
+                  Instruction=0;
+                  long y=ReadAddress.to_ulong();
+                  imem.open("inputf.in");
+                  if (imem.is_open())
+                  {
+                  while ((getline(imem,line))&&(i<=y))
+                     {      
+                        Instruction=(bitset<32>(line)); 
+                        i++;  
+                     }
+                     
+                  }
+                  else{
+                    cout<<"Unable to open file";
+                }
+                  imem.close();
+                     
+              return Instruction;    
+        }
+};
+class DMem{
+
+};
+ 
+int main()
+{
+    RF myRF;
+    ALU myALU;
+    IMem myIMem;
+    DMem myDMem;
+    bool isEqual = false;
+    int i;
+    bitset<16> imm;
+    bitset<32> pc=0;
+    bitset<32> tempPC;
+    bitset<32> curIns;
+    bitset<32> jAddr;
+    bitset<32> BranchAddr;
+    bitset<32> SignExtImm;  
+    bitset<32> result;
+    bitset<32> offset;
+    bitset<32> readData;
+    bitset<6> opcode;
+    bitset<6> funct;
+    bitset<5> rs,rt,rd,shamt;
+    bitset<3> ALUop;
+    while(1){
+    curIns = myIMem.ReadMemory((pc.to_ulong())/4);   
+    cout << "Current Instruction: " << curIns << endl;
+    if (curIns == 0xFFFFFFFF)
+            {
+            cout<<"halt instruction"<<endl;
+            cout<<"PC: "<<pc.to_ulong()<<endl;
+            break;
+            }
+    opcode = getSixBits(curIns, 31, 26);
+    cout << "opcode: " << opcode << endl;
+    if(opcode == 0x00){
+        rd = getFiveBits(curIns, 25, 21);
+        rs = getFiveBits(curIns, 20, 16);         
+        rt = getFiveBits(curIns, 15, 11);
+        funct = getSixBits(curIns, 5, 0);
+        cout<<"function code: "<<funct<<endl; 
+        if(funct == 0x20){
+            cout<<"It's an addu instruction"<<endl;
+        }
+        myRF.ReadWrite(rs, rt, rd, 0, 0);
+        cout << "R[rs]=R["<<rs.to_ulong()<<"]= " << myRF.ReadData1 << endl; 
+            cout << "R[rt]=R["<<rt.to_ulong()<<"]= " << myRF.ReadData2 << endl; 
+    }
+    else if(opcode == 0x02){
+        cout<<"It's a jump instruction"<<endl;
+        tempPC = pc.to_ulong()+4;
+        for (i = 2; i < 28; i++) { 
+                jAddr[i] = curIns[i-2];
+            }
+            for (i = 28; i < 32; i++) { 
+                jAddr[i] = tempPC[i];
+            }
+            for (i = 0; i < 2; i++) {
+                jAddr[i] = 0;
+            }
+         cout<<"PC jump to: "<<jAddr.to_ulong()<<endl;
+    }
+    else{
+        rt = getFiveBits(curIns, 25, 21);
+            rs = getFiveBits(curIns, 20, 16);
+            for (i = 0; i < 16; i++) {
+                imm[i] = curIns[i];           
+            }
+            offset = signExtend(imm);                    
+            myRF.ReadWrite(rs, rt, rt, 0, 0);
+    }
+    if (opcode == 0x00) {
+            result = myALU.ALUOperation(funct, myRF.ReadData1, myRF.ReadData2);
+            cout << "result= " << result << endl ;
+        } 
+     else if(opcode!=0x02){
+            if (opcode == 0x04)           
+            {
+            cout<<"It's a beq instruction"<<endl;  
+            funct = 0x22;
+            result = myALU.ALUOperation(funct, myRF.ReadData1, myRF.ReadData2);
+            if (result == 0)           
+            {
+            isEqual = true;
+            cout<<"R[rs]=R[rt]"<<endl;  
+            }
+            else{
+            cout<<"R[rs]!=R[rt]"<<endl;  
+            }           
+            }
+            else
+            {
+            funct = 0x20;            
+            result = myALU.ALUOperation(funct, myRF.ReadData1, offset);
+            }
+        }
+         if (opcode == 0x08)       
+        {
+        cout<<"It's addi instruction"<<endl;
+        cout<<"R[rs] = ";
+        cout<<"R["<<rs.to_ulong()<<"]=     "<<myRF.ReadData1<<endl;
+        cout<<"SignExtImm =      "<<offset<<endl;           
+        cout<<"R["<<rs.to_ulong()<<"] + SignExtImm="<<result<<"="<<result.to_ulong()<<endl; 
+        cout<<"Store in R["<<rt.to_ulong()<<"]"<<endl;
+        }
+if (opcode != 0x04  && opcode != 0x02) {
+            if (opcode == 0x00)     
+            {
+            myRF.ReadWrite(rs, rt, rd, result, 1);            
+            cout<<"write to R[rd]=R["<<rd.to_ulong()<<"]"<<endl;
+            }                         
+            else
+            myRF.ReadWrite(rs, rt, rt, result, 1);          
+        }
+        if(!isEqual)
+        cout << "PC: " << pc.to_ulong() << endl<<endl;
+    
+        if (opcode == 0x02)
+        pc = jAddr;                    
+
+
+        else if (opcode == 0x04 && isEqual)          
+        {
+        for (i = 2; i < 18; i++) { 
+        BranchAddr[i] = imm[i-2];
+            }
+            for (i = 18; i < 32; i++) { 
+                BranchAddr[i] = imm[15];
+            }
+            for (i = 0; i < 2; i++) { 
+                BranchAddr[i] = 0;
+            }
+            
+        bitset<32> pctemp;
+        pctemp=pc;  
+        pc = pc.to_ulong() + 4 + BranchAddr.to_ulong()*4 ;            
+        cout<<"PC jump to: "<<pc.to_ulong()<<endl;
+        cout << "PC: " << pctemp.to_ulong()<<endl;   
+        isEqual=false;           
+        }
+
+        else
+            pc = pc.to_ulong() + 4;       
+
+
+    cout<<endl;
+    myRF.OutputRF();
+}
+    return 0;
+}
